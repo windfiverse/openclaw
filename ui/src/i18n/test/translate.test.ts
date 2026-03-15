@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { de } from "../locales/de.ts";
+import { es } from "../locales/es.ts";
 import { pt_BR } from "../locales/pt-BR.ts";
 import { zh_CN } from "../locales/zh-CN.ts";
 import { zh_TW } from "../locales/zh-TW.ts";
+import type { TranslationMap } from "../lib/types.ts";
 
 type TranslateModule = typeof import("../lib/translate.ts");
 
@@ -27,6 +30,25 @@ function createStorageMock(): Storage {
       store.set(key, String(value));
     },
   };
+}
+
+function readPath(map: TranslationMap, path: string): unknown {
+  return path.split(".").reduce<unknown>((current, part) => {
+    if (!current || typeof current !== "object") {
+      return undefined;
+    }
+    return (current as Record<string, unknown>)[part];
+  }, map);
+}
+
+function collectLeafPaths(map: TranslationMap, prefix = ""): string[] {
+  return Object.entries(map).flatMap(([key, value]) => {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (typeof value === "string") {
+      return [path];
+    }
+    return collectLeafPaths(value, path);
+  });
 }
 
 describe("i18n", () => {
@@ -96,5 +118,38 @@ describe("i18n", () => {
     expect((pt_BR.common as { version?: string }).version).toBeTruthy();
     expect((zh_CN.common as { version?: string }).version).toBeTruthy();
     expect((zh_TW.common as { version?: string }).version).toBeTruthy();
+  });
+
+  it("keeps third-party node locale coverage aligned across shipped locales", () => {
+    const requiredKeys = [
+      "thirdPartyNodes.credential.oauthLabel",
+      "thirdPartyNodes.credential.apiKeyHelp",
+      "thirdPartyNodes.focus.selectedModelSummary",
+      "thirdPartyNodes.fields.resetTo",
+      "thirdPartyNodes.models.templateDiff",
+      "thirdPartyNodes.authGuide.oauthTitle",
+      "thirdPartyNodes.authGuide.targetAcceptsCurrent",
+      "thirdPartyNodes.verify.discoveredModels",
+      "thirdPartyNodes.verify.hint",
+    ];
+    const locales = { de, es, pt_BR, zh_CN, zh_TW };
+
+    for (const [locale, map] of Object.entries(locales)) {
+      for (const key of requiredKeys) {
+        expect(readPath(map, key), `${locale} missing ${key}`).toBeTruthy();
+      }
+    }
+  });
+
+  it("keeps the full thirdPartyNodes translation subtree structurally aligned", () => {
+    const locales = { de, es, pt_BR, zh_CN, zh_TW };
+    const baseline = collectLeafPaths((zh_CN.thirdPartyNodes ?? {}) as TranslationMap).sort();
+
+    expect(baseline.length).toBeGreaterThan(0);
+
+    for (const [locale, map] of Object.entries(locales)) {
+      const paths = collectLeafPaths((map.thirdPartyNodes ?? {}) as TranslationMap).sort();
+      expect(paths, `${locale} thirdPartyNodes subtree drifted`).toEqual(baseline);
+    }
   });
 });
