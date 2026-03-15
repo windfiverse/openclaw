@@ -42,6 +42,23 @@ type SettingsHost = {
     navCollapsed: boolean;
     navWidth: number;
     navGroupsCollapsed: Record<string, boolean>;
+    thirdPartyNodesFilterReasoningOnly: boolean;
+    thirdPartyNodesFilterImageOnly: boolean;
+    thirdPartyNodesRecentModels: Record<string, string>;
+    thirdPartyNodesHighlightManualFields: boolean;
+    thirdPartyNodesManualHighlightNoticeDismissed: boolean;
+    thirdPartyNodesFocusedSource: "recent" | "verified" | "template" | "manual" | null;
+    thirdPartyNodesFocusedManualGroup: "identity" | "capabilities" | "limits" | null;
+    thirdPartyNodesAuthAdapterStatuses: Record<string, string>;
+    thirdPartyNodesHandledCallbacks: Record<string, string>;
+    thirdPartyNodesAuthAdapterProgress: Record<
+      string,
+      {
+        phase: "copied" | "executed" | "credential_received" | "callback_received";
+        updatedAt: number;
+        detail: string;
+      }
+    >;
   };
   theme: ThemeName & ThemeMode;
   themeMode: ThemeMode;
@@ -59,7 +76,26 @@ type SettingsHost = {
   themeMediaHandler: ((event: MediaQueryListEvent) => void) | null;
   logsPollInterval: number | null;
   debugPollInterval: number | null;
+  thirdPartyNodesFilterReasoningOnly?: boolean;
+  thirdPartyNodesFilterImageOnly?: boolean;
+  thirdPartyNodesRecentModels?: Record<string, string>;
+  thirdPartyNodesHighlightManualFields?: boolean;
+  thirdPartyNodesManualHighlightNoticeDismissed?: boolean;
+  thirdPartyNodesFocusedSource?: "recent" | "verified" | "template" | "manual" | null;
+  thirdPartyNodesFocusedManualGroup?: "identity" | "capabilities" | "limits" | null;
+  thirdPartyNodesAuthAdapterStatuses?: Record<string, string>;
+  thirdPartyNodesHandledCallbacks?: Record<string, string>;
+  thirdPartyNodesAuthAdapterProgress?: Record<
+    string,
+    {
+      phase: "copied" | "executed" | "credential_received" | "callback_received";
+      updatedAt: number;
+      detail: string;
+    }
+  >;
 };
+
+const createdHosts: SettingsHost[] = [];
 
 function createStorageMock(): Storage {
   const store = new Map<string, string>();
@@ -85,46 +121,81 @@ function createStorageMock(): Storage {
   };
 }
 
-const createHost = (tab: Tab): SettingsHost => ({
-  settings: {
-    gatewayUrl: "",
-    token: "",
-    sessionKey: "main",
-    lastActiveSessionKey: "main",
-    theme: "claw",
+const createHost = (tab: Tab): SettingsHost => {
+  const host: SettingsHost = {
+    settings: {
+      gatewayUrl: "",
+      token: "",
+      sessionKey: "main",
+      lastActiveSessionKey: "main",
+      theme: "claw",
+      themeMode: "system",
+      chatFocusMode: false,
+      chatShowThinking: true,
+      splitRatio: 0.6,
+      navCollapsed: false,
+      navWidth: 220,
+      navGroupsCollapsed: {},
+      thirdPartyNodesFilterReasoningOnly: false,
+      thirdPartyNodesFilterImageOnly: false,
+      thirdPartyNodesRecentModels: {},
+      thirdPartyNodesHighlightManualFields: false,
+      thirdPartyNodesManualHighlightNoticeDismissed: false,
+      thirdPartyNodesFocusedSource: null,
+      thirdPartyNodesFocusedManualGroup: null,
+      thirdPartyNodesAuthAdapterStatuses: {},
+      thirdPartyNodesHandledCallbacks: {},
+      thirdPartyNodesAuthAdapterProgress: {},
+    },
+    theme: "claw" as unknown as ThemeName & ThemeMode,
     themeMode: "system",
-    chatFocusMode: false,
-    chatShowThinking: true,
-    splitRatio: 0.6,
-    navCollapsed: false,
-    navWidth: 220,
-    navGroupsCollapsed: {},
-  },
-  theme: "claw" as unknown as ThemeName & ThemeMode,
-  themeMode: "system",
-  themeResolved: "dark",
-  applySessionKey: "main",
-  sessionKey: "main",
-  tab,
-  connected: false,
-  chatHasAutoScrolled: false,
-  logsAtBottom: false,
-  eventLog: [],
-  eventLogBuffer: [],
-  basePath: "",
-  themeMedia: null,
-  themeMediaHandler: null,
-  logsPollInterval: null,
-  debugPollInterval: null,
-});
+    themeResolved: "dark",
+    applySessionKey: "main",
+    sessionKey: "main",
+    tab,
+    connected: false,
+    chatHasAutoScrolled: false,
+    logsAtBottom: false,
+    eventLog: [],
+    eventLogBuffer: [],
+    basePath: "",
+    themeMedia: null,
+    themeMediaHandler: null,
+    logsPollInterval: null,
+    debugPollInterval: null,
+    thirdPartyNodesFilterReasoningOnly: false,
+    thirdPartyNodesFilterImageOnly: false,
+    thirdPartyNodesRecentModels: {},
+    thirdPartyNodesHighlightManualFields: false,
+    thirdPartyNodesManualHighlightNoticeDismissed: false,
+    thirdPartyNodesFocusedSource: null,
+    thirdPartyNodesFocusedManualGroup: null,
+    thirdPartyNodesAuthAdapterStatuses: {},
+    thirdPartyNodesHandledCallbacks: {},
+    thirdPartyNodesAuthAdapterProgress: {},
+  };
+  createdHosts.push(host);
+  return host;
+};
 
 describe("setTabFromRoute", () => {
   beforeEach(() => {
+    vi.stubGlobal("window", globalThis as unknown as Window & typeof globalThis);
     vi.stubGlobal("localStorage", createStorageMock());
     vi.stubGlobal("navigator", { language: "en-US" } as Navigator);
   });
 
   afterEach(() => {
+    for (const host of createdHosts.splice(0)) {
+      if (host.logsPollInterval != null) {
+        clearInterval(host.logsPollInterval);
+        host.logsPollInterval = null;
+      }
+      if (host.debugPollInterval != null) {
+        clearInterval(host.debugPollInterval);
+        host.debugPollInterval = null;
+      }
+    }
     vi.unstubAllGlobals();
   });
 
@@ -220,5 +291,52 @@ describe("setTabFromRoute", () => {
     expect(host.themeResolved).toBe("dash-light");
     expect(root.dataset.theme).toBe("dash-light");
     expect(root.style.colorScheme).toBe("light");
+  });
+
+  it("applies third-party node UI preferences onto the host", () => {
+    const host = createHost("chat");
+
+    applySettings(host, {
+      ...host.settings,
+      thirdPartyNodesFilterReasoningOnly: true,
+      thirdPartyNodesFilterImageOnly: true,
+      thirdPartyNodesRecentModels: { "yunyi-codex": "yunyi-codex/gpt-5.2-mini" },
+      thirdPartyNodesHighlightManualFields: true,
+      thirdPartyNodesManualHighlightNoticeDismissed: true,
+      thirdPartyNodesFocusedSource: "manual",
+      thirdPartyNodesFocusedManualGroup: "capabilities",
+      thirdPartyNodesAuthAdapterStatuses: { "yunyi-codex::command": "Command copied" },
+      thirdPartyNodesHandledCallbacks: { "yunyi-codex::browser-callback": "ac_test_code" },
+      thirdPartyNodesAuthAdapterProgress: {
+        "yunyi-codex::command": {
+          phase: "executed",
+          updatedAt: 1710000000000,
+          detail: "Command execution confirmed by the operator.",
+        },
+      },
+    });
+
+    expect(host.thirdPartyNodesFilterReasoningOnly).toBe(true);
+    expect(host.thirdPartyNodesFilterImageOnly).toBe(true);
+    expect(host.thirdPartyNodesRecentModels).toEqual({
+      "yunyi-codex": "yunyi-codex/gpt-5.2-mini",
+    });
+    expect(host.thirdPartyNodesHighlightManualFields).toBe(true);
+    expect(host.thirdPartyNodesManualHighlightNoticeDismissed).toBe(true);
+    expect(host.thirdPartyNodesFocusedSource).toBe("manual");
+    expect(host.thirdPartyNodesFocusedManualGroup).toBe("capabilities");
+    expect(host.thirdPartyNodesAuthAdapterStatuses).toEqual({
+      "yunyi-codex::command": "Command copied",
+    });
+    expect(host.thirdPartyNodesHandledCallbacks).toEqual({
+      "yunyi-codex::browser-callback": "ac_test_code",
+    });
+    expect(host.thirdPartyNodesAuthAdapterProgress).toEqual({
+      "yunyi-codex::command": {
+        phase: "executed",
+        updatedAt: 1710000000000,
+        detail: "Command execution confirmed by the operator.",
+      },
+    });
   });
 });

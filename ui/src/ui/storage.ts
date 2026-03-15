@@ -21,6 +21,23 @@ export type UiSettings = {
   navCollapsed: boolean; // Collapsible sidebar state
   navWidth: number; // Sidebar width when expanded (240–400px)
   navGroupsCollapsed: Record<string, boolean>; // Which nav groups are collapsed
+  thirdPartyNodesFilterReasoningOnly: boolean;
+  thirdPartyNodesFilterImageOnly: boolean;
+  thirdPartyNodesRecentModels: Record<string, string>;
+  thirdPartyNodesHighlightManualFields: boolean;
+  thirdPartyNodesManualHighlightNoticeDismissed: boolean;
+  thirdPartyNodesFocusedSource: "recent" | "verified" | "template" | "manual" | null;
+  thirdPartyNodesFocusedManualGroup: "identity" | "capabilities" | "limits" | null;
+  thirdPartyNodesAuthAdapterStatuses: Record<string, string>;
+  thirdPartyNodesHandledCallbacks: Record<string, string>;
+  thirdPartyNodesAuthAdapterProgress: Record<
+    string,
+    {
+      phase: "copied" | "executed" | "credential_received" | "callback_received";
+      updatedAt: number;
+      detail: string;
+    }
+  >;
   locale?: string;
 };
 
@@ -135,6 +152,16 @@ export function loadSettings(): UiSettings {
     navCollapsed: false,
     navWidth: 220,
     navGroupsCollapsed: {},
+    thirdPartyNodesFilterReasoningOnly: false,
+    thirdPartyNodesFilterImageOnly: false,
+    thirdPartyNodesRecentModels: {},
+    thirdPartyNodesHighlightManualFields: false,
+    thirdPartyNodesManualHighlightNoticeDismissed: false,
+    thirdPartyNodesFocusedSource: null,
+    thirdPartyNodesFocusedManualGroup: null,
+    thirdPartyNodesAuthAdapterStatuses: {},
+    thirdPartyNodesHandledCallbacks: {},
+    thirdPartyNodesAuthAdapterProgress: {},
   };
 
   try {
@@ -189,6 +216,97 @@ export function loadSettings(): UiSettings {
         typeof parsed.navGroupsCollapsed === "object" && parsed.navGroupsCollapsed !== null
           ? parsed.navGroupsCollapsed
           : defaults.navGroupsCollapsed,
+      thirdPartyNodesFilterReasoningOnly:
+        typeof parsed.thirdPartyNodesFilterReasoningOnly === "boolean"
+          ? parsed.thirdPartyNodesFilterReasoningOnly
+          : defaults.thirdPartyNodesFilterReasoningOnly,
+      thirdPartyNodesFilterImageOnly:
+        typeof parsed.thirdPartyNodesFilterImageOnly === "boolean"
+          ? parsed.thirdPartyNodesFilterImageOnly
+          : defaults.thirdPartyNodesFilterImageOnly,
+      thirdPartyNodesRecentModels:
+        typeof parsed.thirdPartyNodesRecentModels === "object" &&
+        parsed.thirdPartyNodesRecentModels !== null
+          ? Object.fromEntries(
+              Object.entries(parsed.thirdPartyNodesRecentModels).filter(
+                (entry): entry is [string, string] =>
+                  typeof entry[0] === "string" && typeof entry[1] === "string",
+              ),
+            )
+          : defaults.thirdPartyNodesRecentModels,
+      thirdPartyNodesHighlightManualFields:
+        typeof parsed.thirdPartyNodesHighlightManualFields === "boolean"
+          ? parsed.thirdPartyNodesHighlightManualFields
+          : defaults.thirdPartyNodesHighlightManualFields,
+      thirdPartyNodesManualHighlightNoticeDismissed:
+        typeof parsed.thirdPartyNodesManualHighlightNoticeDismissed === "boolean"
+          ? parsed.thirdPartyNodesManualHighlightNoticeDismissed
+          : defaults.thirdPartyNodesManualHighlightNoticeDismissed,
+      thirdPartyNodesFocusedSource:
+        parsed.thirdPartyNodesFocusedSource === "recent" ||
+        parsed.thirdPartyNodesFocusedSource === "verified" ||
+        parsed.thirdPartyNodesFocusedSource === "template" ||
+        parsed.thirdPartyNodesFocusedSource === "manual"
+          ? parsed.thirdPartyNodesFocusedSource
+          : defaults.thirdPartyNodesFocusedSource,
+      thirdPartyNodesFocusedManualGroup:
+        parsed.thirdPartyNodesFocusedManualGroup === "identity" ||
+        parsed.thirdPartyNodesFocusedManualGroup === "capabilities" ||
+        parsed.thirdPartyNodesFocusedManualGroup === "limits"
+          ? parsed.thirdPartyNodesFocusedManualGroup
+          : defaults.thirdPartyNodesFocusedManualGroup,
+      thirdPartyNodesAuthAdapterStatuses:
+        typeof parsed.thirdPartyNodesAuthAdapterStatuses === "object" &&
+        parsed.thirdPartyNodesAuthAdapterStatuses !== null
+          ? Object.fromEntries(
+              Object.entries(parsed.thirdPartyNodesAuthAdapterStatuses).filter(
+                (entry): entry is [string, string] =>
+                  typeof entry[0] === "string" && typeof entry[1] === "string",
+              ),
+            )
+          : defaults.thirdPartyNodesAuthAdapterStatuses,
+      thirdPartyNodesHandledCallbacks:
+        typeof parsed.thirdPartyNodesHandledCallbacks === "object" &&
+        parsed.thirdPartyNodesHandledCallbacks !== null
+          ? Object.fromEntries(
+              Object.entries(parsed.thirdPartyNodesHandledCallbacks).filter(
+                (entry): entry is [string, string] =>
+                  typeof entry[0] === "string" && typeof entry[1] === "string",
+              ),
+            )
+          : defaults.thirdPartyNodesHandledCallbacks,
+      thirdPartyNodesAuthAdapterProgress:
+        typeof parsed.thirdPartyNodesAuthAdapterProgress === "object" &&
+        parsed.thirdPartyNodesAuthAdapterProgress !== null
+          ? Object.fromEntries(
+              Object.entries(parsed.thirdPartyNodesAuthAdapterProgress).filter(
+                (
+                  entry,
+                ): entry is [
+                  string,
+                  {
+                    phase:
+                      | "copied"
+                      | "executed"
+                      | "credential_received"
+                      | "callback_received";
+                    updatedAt: number;
+                    detail: string;
+                  },
+                ] =>
+                  typeof entry[0] === "string" &&
+                  typeof entry[1] === "object" &&
+                  entry[1] !== null &&
+                  (entry[1] as { phase?: unknown }).phase !== undefined &&
+                  ((entry[1] as { phase?: unknown }).phase === "copied" ||
+                    (entry[1] as { phase?: unknown }).phase === "executed" ||
+                    (entry[1] as { phase?: unknown }).phase === "credential_received" ||
+                    (entry[1] as { phase?: unknown }).phase === "callback_received") &&
+                  typeof (entry[1] as { updatedAt?: unknown }).updatedAt === "number" &&
+                  typeof (entry[1] as { detail?: unknown }).detail === "string",
+              ),
+            )
+          : defaults.thirdPartyNodesAuthAdapterProgress,
       locale: isSupportedLocale(parsed.locale) ? parsed.locale : undefined,
     };
     if ("token" in parsed) {
@@ -218,6 +336,17 @@ function persistSettings(next: UiSettings) {
     navCollapsed: next.navCollapsed,
     navWidth: next.navWidth,
     navGroupsCollapsed: next.navGroupsCollapsed,
+    thirdPartyNodesFilterReasoningOnly: next.thirdPartyNodesFilterReasoningOnly,
+    thirdPartyNodesFilterImageOnly: next.thirdPartyNodesFilterImageOnly,
+    thirdPartyNodesRecentModels: next.thirdPartyNodesRecentModels,
+    thirdPartyNodesHighlightManualFields: next.thirdPartyNodesHighlightManualFields,
+    thirdPartyNodesManualHighlightNoticeDismissed:
+      next.thirdPartyNodesManualHighlightNoticeDismissed,
+    thirdPartyNodesFocusedSource: next.thirdPartyNodesFocusedSource,
+    thirdPartyNodesFocusedManualGroup: next.thirdPartyNodesFocusedManualGroup,
+    thirdPartyNodesAuthAdapterStatuses: next.thirdPartyNodesAuthAdapterStatuses,
+    thirdPartyNodesHandledCallbacks: next.thirdPartyNodesHandledCallbacks,
+    thirdPartyNodesAuthAdapterProgress: next.thirdPartyNodesAuthAdapterProgress,
     ...(next.locale ? { locale: next.locale } : {}),
   };
   localStorage.setItem(KEY, JSON.stringify(persisted));

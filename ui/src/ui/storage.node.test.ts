@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { UiSettings } from "./storage.ts";
 
 function createStorageMock(): Storage {
   const store = new Map<string, string>();
@@ -60,6 +61,39 @@ function setControlUiBasePath(value: string | undefined) {
 function expectedGatewayUrl(basePath: string): string {
   const proto = location.protocol === "https:" ? "wss" : "ws";
   return `${proto}://${location.host}${basePath}`;
+}
+
+function createSettings(overrides: Partial<UiSettings> = {}): UiSettings {
+  return {
+    gatewayUrl: "wss://gateway.example:8443/openclaw",
+    token: "",
+    sessionKey: "main",
+    lastActiveSessionKey: "main",
+    theme: "claw",
+    themeMode: "system",
+    chatFocusMode: false,
+    chatShowThinking: true,
+    splitRatio: 0.6,
+    navCollapsed: false,
+    navWidth: 220,
+    navGroupsCollapsed: {},
+    thirdPartyNodesFilterReasoningOnly: false,
+    thirdPartyNodesFilterImageOnly: false,
+    thirdPartyNodesRecentModels: {},
+    thirdPartyNodesHighlightManualFields: false,
+    thirdPartyNodesManualHighlightNoticeDismissed: false,
+    thirdPartyNodesFocusedSource: null,
+    thirdPartyNodesFocusedManualGroup: null,
+    thirdPartyNodesAuthAdapterStatuses: {},
+    thirdPartyNodesHandledCallbacks: {},
+    thirdPartyNodesAuthAdapterProgress: {},
+    ...overrides,
+  };
+}
+
+function createPersistedSettings(overrides: Partial<UiSettings> = {}) {
+  const { token: _token, ...persisted } = createSettings(overrides);
+  return persisted;
 }
 
 describe("loadSettings default gateway URL derivation", () => {
@@ -124,19 +158,12 @@ describe("loadSettings default gateway URL derivation", () => {
       token: "",
       sessionKey: "agent",
     });
-    expect(JSON.parse(localStorage.getItem("openclaw.control.settings.v1") ?? "{}")).toEqual({
-      gatewayUrl: "wss://gateway.example:8443/openclaw",
-      sessionKey: "agent",
-      lastActiveSessionKey: "agent",
-      theme: "claw",
-      themeMode: "system",
-      chatFocusMode: false,
-      chatShowThinking: true,
-      splitRatio: 0.6,
-      navCollapsed: false,
-      navWidth: 220,
-      navGroupsCollapsed: {},
-    });
+    expect(JSON.parse(localStorage.getItem("openclaw.control.settings.v1") ?? "{}")).toEqual(
+      createPersistedSettings({
+        sessionKey: "agent",
+        lastActiveSessionKey: "agent",
+      }),
+    );
     expect(sessionStorage.length).toBe(0);
   });
 
@@ -148,20 +175,7 @@ describe("loadSettings default gateway URL derivation", () => {
     });
 
     const { loadSettings, saveSettings } = await import("./storage.ts");
-    saveSettings({
-      gatewayUrl: "wss://gateway.example:8443/openclaw",
-      token: "session-token",
-      sessionKey: "main",
-      lastActiveSessionKey: "main",
-      theme: "claw",
-      themeMode: "system",
-      chatFocusMode: false,
-      chatShowThinking: true,
-      splitRatio: 0.6,
-      navCollapsed: false,
-      navWidth: 220,
-      navGroupsCollapsed: {},
-    });
+    saveSettings(createSettings({ token: "session-token" }));
 
     expect(loadSettings()).toMatchObject({
       gatewayUrl: "wss://gateway.example:8443/openclaw",
@@ -177,36 +191,15 @@ describe("loadSettings default gateway URL derivation", () => {
     });
 
     const { loadSettings, saveSettings } = await import("./storage.ts");
-    saveSettings({
-      gatewayUrl: "wss://gateway.example:8443/openclaw",
-      token: "gateway-a-token",
-      sessionKey: "main",
-      lastActiveSessionKey: "main",
-      theme: "claw",
-      themeMode: "system",
-      chatFocusMode: false,
-      chatShowThinking: true,
-      splitRatio: 0.6,
-      navCollapsed: false,
-      navWidth: 220,
-      navGroupsCollapsed: {},
-    });
+    saveSettings(createSettings({ token: "gateway-a-token" }));
 
     localStorage.setItem(
       "openclaw.control.settings.v1",
-      JSON.stringify({
-        gatewayUrl: "wss://other-gateway.example:8443/openclaw",
-        sessionKey: "main",
-        lastActiveSessionKey: "main",
-        theme: "claw",
-        themeMode: "system",
-        chatFocusMode: false,
-        chatShowThinking: true,
-        splitRatio: 0.6,
-        navCollapsed: false,
-        navWidth: 220,
-        navGroupsCollapsed: {},
-      }),
+      JSON.stringify(
+        createSettings({
+          gatewayUrl: "wss://other-gateway.example:8443/openclaw",
+        }),
+      ),
     );
 
     expect(loadSettings()).toMatchObject({
@@ -223,38 +216,15 @@ describe("loadSettings default gateway URL derivation", () => {
     });
 
     const { loadSettings, saveSettings } = await import("./storage.ts");
-    saveSettings({
-      gatewayUrl: "wss://gateway.example:8443/openclaw",
-      token: "memory-only-token",
-      sessionKey: "main",
-      lastActiveSessionKey: "main",
-      theme: "claw",
-      themeMode: "system",
-      chatFocusMode: false,
-      chatShowThinking: true,
-      splitRatio: 0.6,
-      navCollapsed: false,
-      navWidth: 220,
-      navGroupsCollapsed: {},
-    });
+    saveSettings(createSettings({ token: "memory-only-token" }));
+
     expect(loadSettings()).toMatchObject({
       gatewayUrl: "wss://gateway.example:8443/openclaw",
       token: "memory-only-token",
     });
-
-    expect(JSON.parse(localStorage.getItem("openclaw.control.settings.v1") ?? "{}")).toEqual({
-      gatewayUrl: "wss://gateway.example:8443/openclaw",
-      sessionKey: "main",
-      lastActiveSessionKey: "main",
-      theme: "claw",
-      themeMode: "system",
-      chatFocusMode: false,
-      chatShowThinking: true,
-      splitRatio: 0.6,
-      navCollapsed: false,
-      navWidth: 220,
-      navGroupsCollapsed: {},
-    });
+    expect(JSON.parse(localStorage.getItem("openclaw.control.settings.v1") ?? "{}")).toEqual(
+      createPersistedSettings(),
+    );
     expect(sessionStorage.length).toBe(1);
   });
 
@@ -266,34 +236,8 @@ describe("loadSettings default gateway URL derivation", () => {
     });
 
     const { loadSettings, saveSettings } = await import("./storage.ts");
-    saveSettings({
-      gatewayUrl: "wss://gateway.example:8443/openclaw",
-      token: "stale-token",
-      sessionKey: "main",
-      lastActiveSessionKey: "main",
-      theme: "claw",
-      themeMode: "system",
-      chatFocusMode: false,
-      chatShowThinking: true,
-      splitRatio: 0.6,
-      navCollapsed: false,
-      navWidth: 220,
-      navGroupsCollapsed: {},
-    });
-    saveSettings({
-      gatewayUrl: "wss://gateway.example:8443/openclaw",
-      token: "",
-      sessionKey: "main",
-      lastActiveSessionKey: "main",
-      theme: "claw",
-      themeMode: "system",
-      chatFocusMode: false,
-      chatShowThinking: true,
-      splitRatio: 0.6,
-      navCollapsed: false,
-      navWidth: 220,
-      navGroupsCollapsed: {},
-    });
+    saveSettings(createSettings({ token: "stale-token" }));
+    saveSettings(createSettings());
 
     expect(loadSettings().token).toBe("");
     expect(sessionStorage.length).toBe(0);
@@ -307,25 +251,304 @@ describe("loadSettings default gateway URL derivation", () => {
     });
 
     const { saveSettings } = await import("./storage.ts");
-    saveSettings({
-      gatewayUrl: "wss://gateway.example:8443/openclaw",
-      token: "",
-      sessionKey: "main",
-      lastActiveSessionKey: "main",
-      theme: "dash",
-      themeMode: "light",
-      chatFocusMode: false,
-      chatShowThinking: true,
-      splitRatio: 0.6,
-      navCollapsed: false,
-      navWidth: 320,
-      navGroupsCollapsed: {},
+    saveSettings(
+      createSettings({
+        theme: "dash",
+        themeMode: "light",
+        navWidth: 320,
+      }),
+    );
+
+    expect(JSON.parse(localStorage.getItem("openclaw.control.settings.v1") ?? "{}")).toMatchObject(
+      {
+        theme: "dash",
+        themeMode: "light",
+        navWidth: 320,
+      },
+    );
+  });
+
+  it("persists third-party node model filters", async () => {
+    setTestLocation({
+      protocol: "https:",
+      host: "gateway.example:8443",
+      pathname: "/",
     });
 
-    expect(JSON.parse(localStorage.getItem("openclaw.control.settings.v1") ?? "{}")).toMatchObject({
-      theme: "dash",
-      themeMode: "light",
-      navWidth: 320,
+    const { loadSettings, saveSettings } = await import("./storage.ts");
+    saveSettings(
+      createSettings({
+        thirdPartyNodesFilterReasoningOnly: true,
+        thirdPartyNodesFilterImageOnly: true,
+      }),
+    );
+
+    expect(loadSettings()).toMatchObject({
+      thirdPartyNodesFilterReasoningOnly: true,
+      thirdPartyNodesFilterImageOnly: true,
+    });
+    expect(JSON.parse(localStorage.getItem("openclaw.control.settings.v1") ?? "{}")).toMatchObject(
+      {
+        thirdPartyNodesFilterReasoningOnly: true,
+        thirdPartyNodesFilterImageOnly: true,
+      },
+    );
+  });
+
+  it("persists recent third-party node models", async () => {
+    setTestLocation({
+      protocol: "https:",
+      host: "gateway.example:8443",
+      pathname: "/",
+    });
+
+    const { loadSettings, saveSettings } = await import("./storage.ts");
+    saveSettings(
+      createSettings({
+        thirdPartyNodesRecentModels: { "yunyi-codex": "yunyi-codex/gpt-5.2-mini" },
+      }),
+    );
+
+    expect(loadSettings()).toMatchObject({
+      thirdPartyNodesRecentModels: { "yunyi-codex": "yunyi-codex/gpt-5.2-mini" },
+    });
+    expect(JSON.parse(localStorage.getItem("openclaw.control.settings.v1") ?? "{}")).toMatchObject(
+      {
+        thirdPartyNodesRecentModels: { "yunyi-codex": "yunyi-codex/gpt-5.2-mini" },
+      },
+    );
+  });
+
+  it("persists manual field highlight preference for third-party nodes", async () => {
+    setTestLocation({
+      protocol: "https:",
+      host: "gateway.example:8443",
+      pathname: "/",
+    });
+
+    const { loadSettings, saveSettings } = await import("./storage.ts");
+    saveSettings(
+      createSettings({
+        thirdPartyNodesHighlightManualFields: true,
+      }),
+    );
+
+    expect(loadSettings()).toMatchObject({
+      thirdPartyNodesHighlightManualFields: true,
+    });
+    expect(JSON.parse(localStorage.getItem("openclaw.control.settings.v1") ?? "{}")).toMatchObject(
+      {
+        thirdPartyNodesHighlightManualFields: true,
+      },
+    );
+  });
+
+  it("persists manual highlight notice dismissal for third-party nodes", async () => {
+    setTestLocation({
+      protocol: "https:",
+      host: "gateway.example:8443",
+      pathname: "/",
+    });
+
+    const { loadSettings, saveSettings } = await import("./storage.ts");
+    saveSettings(
+      createSettings({
+        thirdPartyNodesManualHighlightNoticeDismissed: true,
+      }),
+    );
+
+    expect(loadSettings()).toMatchObject({
+      thirdPartyNodesManualHighlightNoticeDismissed: true,
+    });
+    expect(JSON.parse(localStorage.getItem("openclaw.control.settings.v1") ?? "{}")).toMatchObject(
+      {
+        thirdPartyNodesManualHighlightNoticeDismissed: true,
+      },
+    );
+  });
+
+  it("persists third-party node source focus state", async () => {
+    setTestLocation({
+      protocol: "https:",
+      host: "gateway.example:8443",
+      pathname: "/",
+    });
+
+    const { loadSettings, saveSettings } = await import("./storage.ts");
+    saveSettings(
+      createSettings({
+        thirdPartyNodesFocusedSource: "manual",
+        thirdPartyNodesFocusedManualGroup: "capabilities",
+      }),
+    );
+
+    expect(loadSettings()).toMatchObject({
+      thirdPartyNodesFocusedSource: "manual",
+      thirdPartyNodesFocusedManualGroup: "capabilities",
+    });
+    expect(JSON.parse(localStorage.getItem("openclaw.control.settings.v1") ?? "{}")).toMatchObject(
+      {
+        thirdPartyNodesFocusedSource: "manual",
+        thirdPartyNodesFocusedManualGroup: "capabilities",
+      },
+    );
+  });
+
+  it("persists third-party auth adapter statuses", async () => {
+    setTestLocation({
+      protocol: "https:",
+      host: "gateway.example:8443",
+      pathname: "/",
+    });
+
+    const { loadSettings, saveSettings } = await import("./storage.ts");
+    saveSettings(
+      createSettings({
+        thirdPartyNodesAuthAdapterStatuses: {
+          "yunyi-codex::command": "Command copied",
+        },
+      }),
+    );
+
+    expect(loadSettings()).toMatchObject({
+      thirdPartyNodesAuthAdapterStatuses: {
+        "yunyi-codex::command": "Command copied",
+      },
+    });
+    expect(JSON.parse(localStorage.getItem("openclaw.control.settings.v1") ?? "{}")).toMatchObject(
+      {
+        thirdPartyNodesAuthAdapterStatuses: {
+          "yunyi-codex::command": "Command copied",
+        },
+      },
+    );
+  });
+
+  it("persists handled browser callback markers", async () => {
+    setTestLocation({
+      protocol: "https:",
+      host: "gateway.example:8443",
+      pathname: "/",
+    });
+
+    const { loadSettings, saveSettings } = await import("./storage.ts");
+    saveSettings(
+      createSettings({
+        thirdPartyNodesHandledCallbacks: {
+          "yunyi-codex::browser-callback": "ac_test_code",
+        },
+      }),
+    );
+
+    expect(loadSettings()).toMatchObject({
+      thirdPartyNodesHandledCallbacks: {
+        "yunyi-codex::browser-callback": "ac_test_code",
+      },
+    });
+    expect(JSON.parse(localStorage.getItem("openclaw.control.settings.v1") ?? "{}")).toMatchObject(
+      {
+        thirdPartyNodesHandledCallbacks: {
+          "yunyi-codex::browser-callback": "ac_test_code",
+        },
+      },
+    );
+  });
+
+  it("persists structured auth adapter progress", async () => {
+    setTestLocation({
+      protocol: "https:",
+      host: "gateway.example:8443",
+      pathname: "/",
+    });
+
+    const { loadSettings, saveSettings } = await import("./storage.ts");
+    saveSettings(
+      createSettings({
+        thirdPartyNodesAuthAdapterProgress: {
+          "yunyi-codex::command": {
+            phase: "executed",
+            updatedAt: 1710000000000,
+            detail: "Command execution confirmed by the operator.",
+          },
+        },
+      }),
+    );
+
+    expect(loadSettings()).toMatchObject({
+      thirdPartyNodesAuthAdapterProgress: {
+        "yunyi-codex::command": {
+          phase: "executed",
+          updatedAt: 1710000000000,
+          detail: "Command execution confirmed by the operator.",
+        },
+      },
+    });
+  });
+
+  it("sanitizes invalid third-party node persisted values back to defaults", async () => {
+    setTestLocation({
+      protocol: "https:",
+      host: "gateway.example:8443",
+      pathname: "/",
+    });
+    localStorage.setItem(
+      "openclaw.control.settings.v1",
+      JSON.stringify({
+        gatewayUrl: "wss://gateway.example:8443/openclaw",
+        thirdPartyNodesRecentModels: {
+          ok: "model-a",
+          bad: 123,
+        },
+        thirdPartyNodesFocusedSource: "invalid",
+        thirdPartyNodesFocusedManualGroup: "invalid",
+        thirdPartyNodesAuthAdapterStatuses: {
+          ok: "Ready",
+          bad: 123,
+        },
+        thirdPartyNodesHandledCallbacks: {
+          ok: "ac_test_code",
+          bad: 123,
+        },
+        thirdPartyNodesAuthAdapterProgress: {
+          ok: {
+            phase: "copied",
+            updatedAt: 1710000000000,
+            detail: "Copied",
+          },
+          badPhase: {
+            phase: "invalid",
+            updatedAt: 1710000000000,
+            detail: "bad",
+          },
+          badTime: {
+            phase: "copied",
+            updatedAt: "bad",
+            detail: "bad",
+          },
+          badDetail: {
+            phase: "copied",
+            updatedAt: 1710000000000,
+            detail: 123,
+          },
+        },
+      }),
+    );
+
+    const { loadSettings } = await import("./storage.ts");
+
+    expect(loadSettings()).toMatchObject({
+      thirdPartyNodesRecentModels: { ok: "model-a" },
+      thirdPartyNodesFocusedSource: null,
+      thirdPartyNodesFocusedManualGroup: null,
+      thirdPartyNodesAuthAdapterStatuses: { ok: "Ready" },
+      thirdPartyNodesHandledCallbacks: { ok: "ac_test_code" },
+      thirdPartyNodesAuthAdapterProgress: {
+        ok: {
+          phase: "copied",
+          updatedAt: 1710000000000,
+          detail: "Copied",
+        },
+      },
     });
   });
 });

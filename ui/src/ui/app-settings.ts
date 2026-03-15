@@ -22,6 +22,7 @@ import { loadNodes } from "./controllers/nodes.ts";
 import { loadPresence } from "./controllers/presence.ts";
 import { loadSessions } from "./controllers/sessions.ts";
 import { loadSkills } from "./controllers/skills.ts";
+import { loadThirdPartyNodes } from "./controllers/third-party-nodes.ts";
 import { loadUsage } from "./controllers/usage.ts";
 import {
   inferBasePathFromPathname,
@@ -58,6 +59,23 @@ type SettingsHost = {
   pendingGatewayUrl?: string | null;
   systemThemeCleanup?: (() => void) | null;
   pendingGatewayToken?: string | null;
+  thirdPartyNodesFilterReasoningOnly?: boolean;
+  thirdPartyNodesFilterImageOnly?: boolean;
+  thirdPartyNodesRecentModels?: Record<string, string>;
+  thirdPartyNodesHighlightManualFields?: boolean;
+  thirdPartyNodesManualHighlightNoticeDismissed?: boolean;
+  thirdPartyNodesFocusedSource?: "recent" | "verified" | "template" | "manual" | null;
+  thirdPartyNodesFocusedManualGroup?: "identity" | "capabilities" | "limits" | null;
+  thirdPartyNodesAuthAdapterStatuses?: Record<string, string>;
+  thirdPartyNodesHandledCallbacks?: Record<string, string>;
+  thirdPartyNodesAuthAdapterProgress?: Record<
+    string,
+    {
+      phase: "copied" | "executed" | "credential_received" | "callback_received";
+      updatedAt: number;
+      detail: string;
+    }
+  >;
 };
 
 export function applySettings(host: SettingsHost, next: UiSettings) {
@@ -66,6 +84,17 @@ export function applySettings(host: SettingsHost, next: UiSettings) {
     lastActiveSessionKey: next.lastActiveSessionKey?.trim() || next.sessionKey.trim() || "main",
   };
   host.settings = normalized;
+  host.thirdPartyNodesFilterReasoningOnly = normalized.thirdPartyNodesFilterReasoningOnly;
+  host.thirdPartyNodesFilterImageOnly = normalized.thirdPartyNodesFilterImageOnly;
+  host.thirdPartyNodesRecentModels = normalized.thirdPartyNodesRecentModels;
+  host.thirdPartyNodesHighlightManualFields = normalized.thirdPartyNodesHighlightManualFields;
+  host.thirdPartyNodesManualHighlightNoticeDismissed =
+    normalized.thirdPartyNodesManualHighlightNoticeDismissed;
+  host.thirdPartyNodesFocusedSource = normalized.thirdPartyNodesFocusedSource;
+  host.thirdPartyNodesFocusedManualGroup = normalized.thirdPartyNodesFocusedManualGroup;
+  host.thirdPartyNodesAuthAdapterStatuses = normalized.thirdPartyNodesAuthAdapterStatuses;
+  host.thirdPartyNodesHandledCallbacks = normalized.thirdPartyNodesHandledCallbacks;
+  host.thirdPartyNodesAuthAdapterProgress = normalized.thirdPartyNodesAuthAdapterProgress;
   saveSettings(normalized);
   if (next.theme !== host.theme || next.themeMode !== host.themeMode) {
     host.theme = next.theme;
@@ -261,6 +290,9 @@ export async function refreshActiveTab(host: SettingsHost) {
   ) {
     await loadConfigSchema(host as unknown as OpenClawApp);
     await loadConfig(host as unknown as OpenClawApp);
+    if (host.tab === "aiAgents") {
+      await loadThirdPartyNodes(host as unknown as OpenClawApp);
+    }
   }
   if (host.tab === "debug") {
     await loadDebug(host as unknown as OpenClawApp);

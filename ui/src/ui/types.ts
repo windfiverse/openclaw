@@ -298,6 +298,137 @@ export type ConfigSchemaResponse = {
   generatedAt: string;
 };
 
+export type ThirdPartyNodeTemplateModel = {
+  id: string;
+  name: string;
+  reasoning: boolean;
+  input: Array<"text" | "image">;
+  contextWindow: number;
+  maxTokens: number;
+};
+
+type ThirdPartyNodeTemplateAuthShared = {
+  label: string;
+  detail?: string;
+  authModes?: Array<"api-key" | "oauth" | "token">;
+};
+
+export type ThirdPartyNodeTemplateCredentialTarget = {
+  field: "apiKey";
+  label: string;
+  accepts: Array<"api-key" | "token" | "oauth-credential">;
+};
+
+export type ThirdPartyNodeTemplateAuthAdapter =
+  | (ThirdPartyNodeTemplateAuthShared & {
+      kind: "command";
+      command: string;
+    })
+  | (ThirdPartyNodeTemplateAuthShared & {
+      kind: "browser-callback";
+      url: string;
+      callbackUrl?: string;
+    })
+  | (ThirdPartyNodeTemplateAuthShared & {
+      kind: "manual-paste";
+    });
+
+export type ThirdPartyNodeTemplateAuthFlowAction =
+  | (ThirdPartyNodeTemplateAuthShared & {
+      kind: "copy-command";
+      value: string;
+    })
+  | (ThirdPartyNodeTemplateAuthShared & {
+      kind: "open-url";
+      url: string;
+    })
+  | (ThirdPartyNodeTemplateAuthShared & {
+      kind: "mark-done";
+    });
+
+export type ThirdPartyNodeTemplate = {
+  id: string;
+  label: string;
+  description: string;
+  providerKeyDefault: string;
+  authOptions: Array<"api-key" | "oauth" | "token">;
+  defaultAuth: "api-key" | "oauth" | "token";
+  defaultApi:
+    | "openai-completions"
+    | "openai-responses"
+    | "openai-codex-responses"
+    | "anthropic-messages"
+    | "google-generative-ai"
+    | "github-copilot"
+    | "bedrock-converse-stream"
+    | "ollama";
+  baseUrlPresets: Array<{ label: string; url: string }>;
+  defaultModel: ThirdPartyNodeTemplateModel;
+  docsUrl?: string;
+  credentialTargets?: ThirdPartyNodeTemplateCredentialTarget[];
+  authAdapters?: ThirdPartyNodeTemplateAuthAdapter[];
+  authFlowActions?: ThirdPartyNodeTemplateAuthFlowAction[];
+};
+
+export type ThirdPartyNodesCatalogResult = {
+  templates: ThirdPartyNodeTemplate[];
+};
+
+export type ThirdPartyNodeStatusEntry = {
+  providerKey: string;
+  label: string;
+  baseUrl: string;
+  auth?: "api-key" | "aws-sdk" | "oauth" | "token";
+  api?:
+    | "openai-completions"
+    | "openai-responses"
+    | "openai-codex-responses"
+    | "anthropic-messages"
+    | "google-generative-ai"
+    | "github-copilot"
+    | "bedrock-converse-stream"
+    | "ollama";
+  modelId?: string;
+  modelName?: string;
+  enabled: boolean;
+  hasApiKey: boolean;
+  headerNames: string[];
+};
+
+export type ThirdPartyNodesStatusResult = {
+  path: string;
+  baseHash?: string;
+  entries: ThirdPartyNodeStatusEntry[];
+};
+
+export type ThirdPartyNodeVerifiedModel = {
+  id: string;
+  name?: string;
+  reasoning?: boolean;
+  input?: Array<"text" | "image">;
+  contextWindow?: number;
+  maxTokens?: number;
+};
+
+export type ThirdPartyNodesVerifyResult = {
+  ok: boolean;
+  status: number;
+  checkedUrl: string;
+  providerKey: string;
+  models: ThirdPartyNodeVerifiedModel[];
+  modelIds: string[];
+  message: string;
+};
+
+export type ThirdPartyNodesApplyConfirm = {
+  title: string;
+  message: string;
+  detail: string;
+  severity: "warning" | "danger";
+  statusLabel: string;
+  recommendation: string;
+};
+
 export type PresenceEntry = {
   instanceId?: string | null;
   host?: string | null;

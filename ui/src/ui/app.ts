@@ -234,6 +234,50 @@ export class OpenClawApp extends LitElement {
   @state() aiAgentsSearchQuery = "";
   @state() aiAgentsActiveSection: string | null = null;
   @state() aiAgentsActiveSubsection: string | null = null;
+  @state() thirdPartyNodesLoading = false;
+  @state() thirdPartyNodesSaving = false;
+  @state() thirdPartyNodesVerifying = false;
+  @state() thirdPartyNodesDirty = false;
+  @state() thirdPartyNodesLastErrorReason: "template" | "verify" | "apply" | null = null;
+  @state() thirdPartyNodesTemplates: import("./types.ts").ThirdPartyNodeTemplate[] = [];
+  @state() thirdPartyNodesEntries: import("./types.ts").ThirdPartyNodeStatusEntry[] = [];
+  @state() thirdPartyNodesBaseHash: string | null = null;
+  @state() thirdPartyNodesSelectedTemplateId: string | null = null;
+  @state() thirdPartyNodesForm: import("./controllers/third-party-nodes.ts").ThirdPartyNodeFormState | null =
+    null;
+  @state() thirdPartyNodesVerifyResult: import("./types.ts").ThirdPartyNodesVerifyResult | null =
+    null;
+  @state() thirdPartyNodesApplyConfirm: import("./types.ts").ThirdPartyNodesApplyConfirm | null =
+    null;
+  @state() thirdPartyNodesFilterReasoningOnly =
+    this.settings.thirdPartyNodesFilterReasoningOnly ?? false;
+  @state() thirdPartyNodesFilterImageOnly = this.settings.thirdPartyNodesFilterImageOnly ?? false;
+  @state() thirdPartyNodesRecentModels = this.settings.thirdPartyNodesRecentModels ?? {};
+  @state() thirdPartyNodesHighlightManualFields =
+    this.settings.thirdPartyNodesHighlightManualFields ?? false;
+  @state() thirdPartyNodesManualHighlightNoticeDismissed =
+    this.settings.thirdPartyNodesManualHighlightNoticeDismissed ?? false;
+  @state() thirdPartyNodesFocusedSource: "recent" | "verified" | "template" | "manual" | null =
+    this.settings.thirdPartyNodesFocusedSource ?? null;
+  @state() thirdPartyNodesFocusedManualGroup: "identity" | "capabilities" | "limits" | null =
+    this.settings.thirdPartyNodesFocusedManualGroup ?? null;
+  @state() thirdPartyNodesAuthAdapterStatuses = this.settings.thirdPartyNodesAuthAdapterStatuses ?? {};
+  @state() thirdPartyNodesHandledCallbacks = this.settings.thirdPartyNodesHandledCallbacks ?? {};
+  @state() thirdPartyNodesAuthAdapterProgress =
+    this.settings.thirdPartyNodesAuthAdapterProgress ?? {};
+  @state() thirdPartyNodesActiveHelpField:
+    | "modelId"
+    | "modelName"
+    | "reasoning"
+    | "supportsImageInput"
+    | "contextWindow"
+    | "maxTokens"
+    | null = null;
+  @state() thirdPartyNodesActiveHelpPopoverPlacement:
+    | "top-left"
+    | "top-right"
+    | "bottom-left"
+    | "bottom-right" = "bottom-left";
 
   @state() channelsLoading = false;
   @state() channelsSnapshot: ChannelsStatusSnapshot | null = null;
@@ -448,7 +492,31 @@ export class OpenClawApp extends LitElement {
   private popStateHandler = () =>
     onPopStateInternal(this as unknown as Parameters<typeof onPopStateInternal>[0]);
   private topbarObserver: ResizeObserver | null = null;
+  private documentPointerDownHandler = (event: Event) => {
+    if (!this.thirdPartyNodesActiveHelpField) {
+      return;
+    }
+    const path =
+      typeof (event as Event & { composedPath?: () => EventTarget[] }).composedPath === "function"
+        ? (event as Event & { composedPath: () => EventTarget[] }).composedPath()
+        : [];
+    const clickedInsideHelp = path.some((target) => {
+      if (!(target instanceof HTMLElement)) {
+        return false;
+      }
+      return target.dataset.thirdPartyFieldHelpContainer === "true";
+    });
+    if (!clickedInsideHelp) {
+      this.thirdPartyNodesActiveHelpField = null;
+      this.thirdPartyNodesActiveHelpPopoverPlacement = "bottom-left";
+    }
+  };
   private globalKeydownHandler = (e: KeyboardEvent) => {
+    if (e.key === "Escape" && this.thirdPartyNodesActiveHelpField) {
+      this.thirdPartyNodesActiveHelpField = null;
+      this.thirdPartyNodesActiveHelpPopoverPlacement = "bottom-left";
+      return;
+    }
     if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === "k") {
       e.preventDefault();
       this.paletteOpen = !this.paletteOpen;
@@ -479,6 +547,7 @@ export class OpenClawApp extends LitElement {
       }
     };
     document.addEventListener("keydown", this.globalKeydownHandler);
+    document.addEventListener("pointerdown", this.documentPointerDownHandler, true);
     handleConnected(this as unknown as Parameters<typeof handleConnected>[0]);
   }
 
@@ -488,6 +557,7 @@ export class OpenClawApp extends LitElement {
 
   disconnectedCallback() {
     document.removeEventListener("keydown", this.globalKeydownHandler);
+    document.removeEventListener("pointerdown", this.documentPointerDownHandler, true);
     handleDisconnected(this as unknown as Parameters<typeof handleDisconnected>[0]);
     super.disconnectedCallback();
   }

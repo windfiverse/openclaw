@@ -94,6 +94,71 @@ import { renderExecApprovalPrompt } from "./views/exec-approval.ts";
 import { renderGatewayUrlConfirmation } from "./views/gateway-url-confirmation.ts";
 import { renderLoginGate } from "./views/login-gate.ts";
 import { renderOverview } from "./views/overview.ts";
+import {
+  applyThirdPartyNodes,
+  applyThirdPartyNodeTemplateDefaults,
+  cancelThirdPartyNodesApplyConfirm,
+  confirmThirdPartyNodesApply,
+  editThirdPartyNodesFormField,
+  loadThirdPartyNodes,
+  resetThirdPartyNodeFormField,
+  selectThirdPartyNodeTemplate,
+  verifyThirdPartyNodes,
+} from "./controllers/third-party-nodes.ts";
+import { renderThirdPartyNodes } from "./views/third-party-nodes.ts";
+
+function scrollFirstManualThirdPartyFieldIntoView() {
+  requestAnimationFrame(() => {
+    const firstManualField = document.querySelector<HTMLElement>(
+      "[data-third-party-manual-field='true']",
+    );
+    if (firstManualField && typeof firstManualField.scrollIntoView === "function") {
+      firstManualField.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  });
+}
+
+function scrollFirstThirdPartyFieldForSourceIntoView(
+  source: "recent" | "verified" | "template" | "manual",
+) {
+  requestAnimationFrame(() => {
+    const firstMatchingField = document.querySelector<HTMLElement>(
+      `[data-third-party-field-source='${source}']`,
+    );
+    if (firstMatchingField && typeof firstMatchingField.scrollIntoView === "function") {
+      firstMatchingField.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  });
+}
+
+function scrollFirstThirdPartyFieldForGroupIntoView(
+  group: "identity" | "capabilities" | "limits",
+) {
+  requestAnimationFrame(() => {
+    const firstMatchingField = document.querySelector<HTMLElement>(
+      `[data-third-party-field-group='${group}'][data-third-party-manual-field='true']`,
+    );
+    if (firstMatchingField && typeof firstMatchingField.scrollIntoView === "function") {
+      firstMatchingField.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  });
+}
+
+type AuthAdapterProgressEntry = AppViewState["thirdPartyNodesAuthAdapterProgress"][string];
+
+function updateThirdPartyAuthAdapterProgress(
+  state: AppViewState,
+  adapterKey: string,
+  progress: AuthAdapterProgressEntry,
+) {
+  state.applySettings({
+    ...state.settings,
+    thirdPartyNodesAuthAdapterProgress: {
+      ...state.thirdPartyNodesAuthAdapterProgress,
+      [adapterKey]: progress,
+    },
+  });
+}
 
 // Lazy-loaded view modules – deferred so the initial bundle stays small.
 // Each loader resolves once; subsequent calls return the cached module.
@@ -1797,65 +1862,285 @@ export function renderApp(state: AppViewState) {
 
         ${
           state.tab === "aiAgents"
-            ? renderConfig({
-                raw: state.configRaw,
-                originalRaw: state.configRawOriginal,
-                valid: state.configValid,
-                issues: state.configIssues,
-                loading: state.configLoading,
-                saving: state.configSaving,
-                applying: state.configApplying,
-                updating: state.updateRunning,
-                connected: state.connected,
-                schema: state.configSchema,
-                schemaLoading: state.configSchemaLoading,
-                uiHints: state.configUiHints,
-                formMode: state.aiAgentsFormMode,
-                formValue: state.configForm,
-                originalValue: state.configFormOriginal,
-                searchQuery: state.aiAgentsSearchQuery,
-                activeSection:
-                  state.aiAgentsActiveSection &&
-                  !AI_AGENTS_SECTION_KEYS.includes(
-                    state.aiAgentsActiveSection as AiAgentsSectionKey,
-                  )
-                    ? null
-                    : state.aiAgentsActiveSection,
-                activeSubsection:
-                  state.aiAgentsActiveSection &&
-                  !AI_AGENTS_SECTION_KEYS.includes(
-                    state.aiAgentsActiveSection as AiAgentsSectionKey,
-                  )
-                    ? null
-                    : state.aiAgentsActiveSubsection,
-                onRawChange: (next) => {
-                  state.configRaw = next;
-                },
-                onFormModeChange: (mode) => (state.aiAgentsFormMode = mode),
-                onFormPatch: (path, value) => updateConfigFormValue(state, path, value),
-                onSearchChange: (query) => (state.aiAgentsSearchQuery = query),
-                onSectionChange: (section) => {
-                  state.aiAgentsActiveSection = section;
-                  state.aiAgentsActiveSubsection = null;
-                },
-                onSubsectionChange: (section) => (state.aiAgentsActiveSubsection = section),
-                onReload: () => loadConfig(state),
-                onSave: () => saveConfig(state),
-                onApply: () => applyConfig(state),
-                onUpdate: () => runUpdate(state),
-                onOpenFile: () => openConfigFile(state),
-                version: state.hello?.server?.version ?? "",
-                theme: state.theme,
-                themeMode: state.themeMode,
-                setTheme: (t, ctx) => state.setTheme(t, ctx),
-                setThemeMode: (m, ctx) => state.setThemeMode(m, ctx),
-                gatewayUrl: state.settings.gatewayUrl,
-                assistantName: state.assistantName,
-                configPath: state.configSnapshot?.path ?? null,
-                navRootLabel: "AI & Agents",
-                includeSections: [...AI_AGENTS_SECTION_KEYS],
-                includeVirtualSections: false,
-              })
+            ? html`
+                ${(() => {
+                  const selectedTemplate =
+                    state.thirdPartyNodesTemplates.find(
+                      (entry) => entry.id === state.thirdPartyNodesSelectedTemplateId,
+                    ) ?? null;
+                  if (
+                    state.thirdPartyNodesForm?.auth === "oauth" &&
+                    selectedTemplate?.authAdapters?.some((entry) => entry.kind === "browser-callback")
+                  ) {
+                    const callbackAdapter = selectedTemplate.authAdapters.find(
+                      (entry) => entry.kind === "browser-callback" && entry.callbackUrl,
+                    );
+                    if (callbackAdapter?.callbackUrl) {
+                      try {
+                        const currentUrl = new URL(window.location.href);
+                        const expectedUrl = new URL(callbackAdapter.callbackUrl, currentUrl.href);
+                        const code = currentUrl.searchParams.get("code")?.trim() ?? "";
+                        if (code && currentUrl.pathname === expectedUrl.pathname) {
+                          const providerKey = state.thirdPartyNodesForm.providerKey.trim();
+                          const callbackStatusKey = `${providerKey}::browser-callback`;
+                          const handledCode =
+                            state.thirdPartyNodesHandledCallbacks[callbackStatusKey] ?? "";
+                          if (handledCode !== code && state.thirdPartyNodesForm.apiKey !== code) {
+                            editThirdPartyNodesFormField(state, "apiKey", code);
+                          }
+                          if (providerKey) {
+                            if (handledCode !== code) {
+                              state.applySettings({
+                                ...state.settings,
+                                thirdPartyNodesAuthAdapterStatuses: {
+                                  ...state.thirdPartyNodesAuthAdapterStatuses,
+                                  [callbackStatusKey]:
+                                    t("thirdPartyNodes.authGuide.callbackAutoDraftedStatus"),
+                                },
+                                thirdPartyNodesHandledCallbacks: {
+                                  ...state.thirdPartyNodesHandledCallbacks,
+                                  [callbackStatusKey]: code,
+                                },
+                                thirdPartyNodesAuthAdapterProgress: {
+                                  ...state.thirdPartyNodesAuthAdapterProgress,
+                                  [callbackStatusKey]: {
+                                    phase: "callback_received",
+                                    updatedAt: Date.now(),
+                                    detail: t("thirdPartyNodes.authGuide.callbackAutoDraftedDetail"),
+                                  },
+                                },
+                              });
+                            }
+                          }
+                          if (handledCode !== code) {
+                            currentUrl.searchParams.delete("code");
+                            currentUrl.searchParams.delete("state");
+                            currentUrl.searchParams.delete("scope");
+                            window.history.replaceState({}, "", currentUrl.toString());
+                          }
+                        }
+                      } catch {
+                        // best-effort callback hydration
+                      }
+                    }
+                  }
+                  return renderThirdPartyNodes({
+                    loading: state.thirdPartyNodesLoading,
+                    saving: state.thirdPartyNodesSaving,
+                    verifying: state.thirdPartyNodesVerifying,
+                    dirty: state.thirdPartyNodesDirty,
+                    lastError: state.lastError,
+                    lastErrorReason: state.thirdPartyNodesLastErrorReason,
+                    templates: state.thirdPartyNodesTemplates,
+                    entries: state.thirdPartyNodesEntries,
+                    selectedTemplateId: state.thirdPartyNodesSelectedTemplateId,
+                    form: state.thirdPartyNodesForm,
+                    verifyResult: state.thirdPartyNodesVerifyResult,
+                    applyConfirm: state.thirdPartyNodesApplyConfirm,
+                    filterReasoningOnly: state.thirdPartyNodesFilterReasoningOnly,
+                    filterImageOnly: state.thirdPartyNodesFilterImageOnly,
+                    recentModelId:
+                      state.thirdPartyNodesRecentModels[
+                        state.thirdPartyNodesForm?.providerKey?.trim() ?? ""
+                      ] ?? null,
+                    highlightManualFields: state.thirdPartyNodesHighlightManualFields,
+                    manualHighlightNoticeDismissed:
+                      state.thirdPartyNodesManualHighlightNoticeDismissed,
+                    focusedSource: state.thirdPartyNodesFocusedSource,
+                    focusedManualGroup: state.thirdPartyNodesFocusedManualGroup,
+                    authAdapterStatuses: state.thirdPartyNodesAuthAdapterStatuses,
+                    authAdapterProgress: state.thirdPartyNodesAuthAdapterProgress,
+                    activeHelpField: state.thirdPartyNodesActiveHelpField,
+                    activeHelpPopoverPlacement: state.thirdPartyNodesActiveHelpPopoverPlacement,
+                    onReload: () => loadThirdPartyNodes(state),
+                    onVerify: () => verifyThirdPartyNodes(state),
+                    onApply: () => applyThirdPartyNodes(state),
+                    onApplyConfirm: () => confirmThirdPartyNodesApply(state),
+                    onApplyCancel: () => cancelThirdPartyNodesApplyConfirm(state),
+                    onFilterReasoningOnlyChange: (value) =>
+                      state.applySettings({
+                        ...state.settings,
+                        thirdPartyNodesFilterReasoningOnly: value,
+                      }),
+                    onFilterImageOnlyChange: (value) =>
+                      state.applySettings({
+                        ...state.settings,
+                        thirdPartyNodesFilterImageOnly: value,
+                      }),
+                    onClearFilters: () =>
+                      state.applySettings({
+                        ...state.settings,
+                        thirdPartyNodesFilterReasoningOnly: false,
+                        thirdPartyNodesFilterImageOnly: false,
+                      }),
+                    onApplyTemplateDefaults: () => applyThirdPartyNodeTemplateDefaults(state),
+                    onClearRecentModel: () => {
+                      const providerKey = state.thirdPartyNodesForm?.providerKey?.trim();
+                      if (!providerKey) {
+                        return;
+                      }
+                      const nextRecentModels = { ...state.thirdPartyNodesRecentModels };
+                      delete nextRecentModels[providerKey];
+                      state.applySettings({
+                        ...state.settings,
+                        thirdPartyNodesRecentModels: nextRecentModels,
+                      });
+                    },
+                    onToggleManualHighlights: () =>
+                      (() => {
+                        const nextHighlightManualFields =
+                          !state.thirdPartyNodesHighlightManualFields;
+                        state.applySettings({
+                          ...state.settings,
+                          thirdPartyNodesHighlightManualFields: nextHighlightManualFields,
+                        });
+                        if (nextHighlightManualFields) {
+                          scrollFirstManualThirdPartyFieldIntoView();
+                        }
+                      })(),
+                    onDismissManualHighlightNotice: () =>
+                      state.applySettings({
+                        ...state.settings,
+                        thirdPartyNodesManualHighlightNoticeDismissed: true,
+                      }),
+                    onFocusSource: (source) => {
+                      state.applySettings({
+                        ...state.settings,
+                        thirdPartyNodesFocusedSource: source,
+                        thirdPartyNodesFocusedManualGroup: null,
+                      });
+                      if (source) {
+                        scrollFirstThirdPartyFieldForSourceIntoView(source);
+                      }
+                    },
+                    onFocusManualGroup: (group) => {
+                      state.applySettings({
+                        ...state.settings,
+                        thirdPartyNodesFocusedManualGroup: group,
+                        thirdPartyNodesFocusedSource: group ? "manual" : null,
+                      });
+                      if (group) {
+                        scrollFirstThirdPartyFieldForGroupIntoView(group);
+                      }
+                    },
+                    onAuthAdapterStatusChange: (adapterKey, status) =>
+                      state.applySettings({
+                        ...state.settings,
+                        thirdPartyNodesAuthAdapterStatuses: {
+                          ...state.thirdPartyNodesAuthAdapterStatuses,
+                          [adapterKey]: status,
+                        },
+                      }),
+                    onAuthAdapterProgressChange: (adapterKey, progress) =>
+                      updateThirdPartyAuthAdapterProgress(state, adapterKey, progress),
+                    onToggleHelpField: (field, placement = "bottom-left") => {
+                      state.thirdPartyNodesActiveHelpField = field;
+                      state.thirdPartyNodesActiveHelpPopoverPlacement = field ? placement : "bottom-left";
+                    },
+                    onResetField: (key) => resetThirdPartyNodeFormField(state, key),
+                    onTemplateChange: (templateId) => selectThirdPartyNodeTemplate(state, templateId),
+                    onFieldChange: (key, value) => {
+                      editThirdPartyNodesFormField(state, key, value);
+                      const providerKey = state.thirdPartyNodesForm?.providerKey?.trim() ?? "";
+                      if (key === "modelId") {
+                        state.applySettings({
+                          ...state.settings,
+                          thirdPartyNodesRecentModels: state.thirdPartyNodesRecentModels,
+                        });
+                        return;
+                      }
+                      if (key === "apiKey" && typeof value === "string" && value.trim() && providerKey) {
+                        const nextStatuses = { ...state.thirdPartyNodesAuthAdapterStatuses };
+                        const nextProgress = { ...state.thirdPartyNodesAuthAdapterProgress };
+                        if (selectedTemplate?.authAdapters?.some((entry) => entry.kind === "command")) {
+                          const adapterKey = `${providerKey}::command`;
+                          nextStatuses[adapterKey] =
+                            t("thirdPartyNodes.authGuide.commandCredentialReceivedStatus");
+                          nextProgress[adapterKey] = {
+                            phase: "credential_received",
+                            updatedAt: Date.now(),
+                            detail: t("thirdPartyNodes.authGuide.commandCredentialReceivedDetail"),
+                          };
+                        }
+                        if (selectedTemplate?.authAdapters?.some((entry) => entry.kind === "manual-paste")) {
+                          const adapterKey = `${providerKey}::manual-paste`;
+                          nextStatuses[adapterKey] =
+                            t("thirdPartyNodes.authGuide.manualCredentialReceivedStatus");
+                          nextProgress[adapterKey] = {
+                            phase: "credential_received",
+                            updatedAt: Date.now(),
+                            detail: t("thirdPartyNodes.authGuide.manualCredentialReceivedDetail"),
+                          };
+                        }
+                        state.applySettings({
+                          ...state.settings,
+                          thirdPartyNodesAuthAdapterStatuses: nextStatuses,
+                          thirdPartyNodesAuthAdapterProgress: nextProgress,
+                        });
+                      }
+                    },
+                  });
+                })()}
+                ${renderConfig({
+                  raw: state.configRaw,
+                  originalRaw: state.configRawOriginal,
+                  valid: state.configValid,
+                  issues: state.configIssues,
+                  loading: state.configLoading,
+                  saving: state.configSaving,
+                  applying: state.configApplying,
+                  updating: state.updateRunning,
+                  connected: state.connected,
+                  schema: state.configSchema,
+                  schemaLoading: state.configSchemaLoading,
+                  uiHints: state.configUiHints,
+                  formMode: state.aiAgentsFormMode,
+                  formValue: state.configForm,
+                  originalValue: state.configFormOriginal,
+                  searchQuery: state.aiAgentsSearchQuery,
+                  activeSection:
+                    state.aiAgentsActiveSection &&
+                    !AI_AGENTS_SECTION_KEYS.includes(
+                      state.aiAgentsActiveSection as AiAgentsSectionKey,
+                    )
+                      ? null
+                      : state.aiAgentsActiveSection,
+                  activeSubsection:
+                    state.aiAgentsActiveSection &&
+                    !AI_AGENTS_SECTION_KEYS.includes(
+                      state.aiAgentsActiveSection as AiAgentsSectionKey,
+                    )
+                      ? null
+                      : state.aiAgentsActiveSubsection,
+                  onRawChange: (next) => {
+                    state.configRaw = next;
+                  },
+                  onFormModeChange: (mode) => (state.aiAgentsFormMode = mode),
+                  onFormPatch: (path, value) => updateConfigFormValue(state, path, value),
+                  onSearchChange: (query) => (state.aiAgentsSearchQuery = query),
+                  onSectionChange: (section) => {
+                    state.aiAgentsActiveSection = section;
+                    state.aiAgentsActiveSubsection = null;
+                  },
+                  onSubsectionChange: (section) => (state.aiAgentsActiveSubsection = section),
+                  onReload: () => loadConfig(state),
+                  onSave: () => saveConfig(state),
+                  onApply: () => applyConfig(state),
+                  onUpdate: () => runUpdate(state),
+                  onOpenFile: () => openConfigFile(state),
+                  version: state.hello?.server?.version ?? "",
+                  theme: state.theme,
+                  themeMode: state.themeMode,
+                  setTheme: (t, ctx) => state.setTheme(t, ctx),
+                  setThemeMode: (m, ctx) => state.setThemeMode(m, ctx),
+                  gatewayUrl: state.settings.gatewayUrl,
+                  assistantName: state.assistantName,
+                  configPath: state.configSnapshot?.path ?? null,
+                  navRootLabel: "AI & Agents",
+                  includeSections: [...AI_AGENTS_SECTION_KEYS],
+                  includeVirtualSections: false,
+                })}
+              `
             : nothing
         }
 

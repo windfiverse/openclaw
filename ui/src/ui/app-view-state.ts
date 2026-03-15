@@ -35,6 +35,8 @@ import type {
 import type { ChatAttachment, ChatQueueItem } from "./ui-types.ts";
 import type { NostrProfileFormState } from "./views/channels.nostr-profile-form.ts";
 import type { SessionLogEntry } from "./views/usage.ts";
+import type { ThirdPartyNodeTemplate, ThirdPartyNodeStatusEntry } from "./types.ts";
+import type { ThirdPartyNodeFormState } from "./controllers/third-party-nodes.ts";
 
 export type AppViewState = {
   settings: UiSettings;
@@ -140,6 +142,44 @@ export type AppViewState = {
   aiAgentsSearchQuery: string;
   aiAgentsActiveSection: string | null;
   aiAgentsActiveSubsection: string | null;
+  thirdPartyNodesLoading: boolean;
+  thirdPartyNodesSaving: boolean;
+  thirdPartyNodesVerifying: boolean;
+  thirdPartyNodesDirty: boolean;
+  thirdPartyNodesLastErrorReason: "template" | "verify" | "apply" | null;
+  thirdPartyNodesTemplates: ThirdPartyNodeTemplate[];
+  thirdPartyNodesEntries: ThirdPartyNodeStatusEntry[];
+  thirdPartyNodesBaseHash: string | null;
+  thirdPartyNodesSelectedTemplateId: string | null;
+  thirdPartyNodesForm: ThirdPartyNodeFormState | null;
+  thirdPartyNodesVerifyResult: import("./types.ts").ThirdPartyNodesVerifyResult | null;
+  thirdPartyNodesApplyConfirm: import("./types.ts").ThirdPartyNodesApplyConfirm | null;
+  thirdPartyNodesFilterReasoningOnly: boolean;
+  thirdPartyNodesFilterImageOnly: boolean;
+  thirdPartyNodesRecentModels: Record<string, string>;
+  thirdPartyNodesHighlightManualFields: boolean;
+  thirdPartyNodesManualHighlightNoticeDismissed: boolean;
+  thirdPartyNodesFocusedSource: "recent" | "verified" | "template" | "manual" | null;
+  thirdPartyNodesFocusedManualGroup: "identity" | "capabilities" | "limits" | null;
+  thirdPartyNodesAuthAdapterStatuses: Record<string, string>;
+  thirdPartyNodesHandledCallbacks: Record<string, string>;
+  thirdPartyNodesAuthAdapterProgress: Record<
+    string,
+    {
+      phase: "copied" | "executed" | "credential_received" | "callback_received";
+      updatedAt: number;
+      detail: string;
+    }
+  >;
+  thirdPartyNodesActiveHelpField:
+    | "modelId"
+    | "modelName"
+    | "reasoning"
+    | "supportsImageInput"
+    | "contextWindow"
+    | "maxTokens"
+    | null;
+  thirdPartyNodesActiveHelpPopoverPlacement: "top-left" | "top-right" | "bottom-left" | "bottom-right";
   channelsLoading: boolean;
   channelsSnapshot: ChannelsStatusSnapshot | null;
   channelsError: string | null;
