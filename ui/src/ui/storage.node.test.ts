@@ -73,6 +73,7 @@ function createSettings(overrides: Partial<UiSettings> = {}): UiSettings {
     themeMode: "system",
     chatFocusMode: false,
     chatShowThinking: true,
+    chatShowToolCalls: true,
     splitRatio: 0.6,
     navCollapsed: false,
     navWidth: 220,
@@ -92,8 +93,17 @@ function createSettings(overrides: Partial<UiSettings> = {}): UiSettings {
 }
 
 function createPersistedSettings(overrides: Partial<UiSettings> = {}) {
-  const { token: _token, ...persisted } = createSettings(overrides);
-  return persisted;
+  const settings = createSettings(overrides);
+  const { token: _token, sessionKey, lastActiveSessionKey, ...persisted } = settings;
+  return {
+    ...persisted,
+    sessionsByGateway: {
+      [settings.gatewayUrl]: {
+        sessionKey,
+        lastActiveSessionKey,
+      },
+    },
+  };
 }
 
 describe("loadSettings default gateway URL derivation", () => {
@@ -196,7 +206,7 @@ describe("loadSettings default gateway URL derivation", () => {
     localStorage.setItem(
       "openclaw.control.settings.v1",
       JSON.stringify(
-        createSettings({
+        createPersistedSettings({
           gatewayUrl: "wss://other-gateway.example:8443/openclaw",
         }),
       ),
@@ -217,7 +227,6 @@ describe("loadSettings default gateway URL derivation", () => {
 
     const { loadSettings, saveSettings } = await import("./storage.ts");
     saveSettings(createSettings({ token: "memory-only-token" }));
-
     expect(loadSettings()).toMatchObject({
       gatewayUrl: "wss://gateway.example:8443/openclaw",
       token: "memory-only-token",
@@ -550,5 +559,111 @@ describe("loadSettings default gateway URL derivation", () => {
         },
       },
     });
+  });
+
+  it("scopes persisted session selection per gateway", async () => {
+    setTestLocation({
+      protocol: "https:",
+      host: "gateway.example:8443",
+      pathname: "/",
+    });
+
+    const { loadSettings, saveSettings } = await import("./storage.ts");
+
+    saveSettings({
+      gatewayUrl: "wss://gateway-a.example:8443/openclaw",
+      token: "",
+      sessionKey: "agent:test_old:main",
+      lastActiveSessionKey: "agent:test_old:main",
+      theme: "claw",
+      themeMode: "system",
+      chatFocusMode: false,
+      chatShowThinking: true,
+      chatShowToolCalls: true,
+      splitRatio: 0.6,
+      navCollapsed: false,
+      navWidth: 220,
+      navGroupsCollapsed: {},
+    });
+
+    saveSettings({
+      gatewayUrl: "wss://gateway-b.example:8443/openclaw",
+      token: "",
+      sessionKey: "agent:test_new:main",
+      lastActiveSessionKey: "agent:test_new:main",
+      theme: "claw",
+      themeMode: "system",
+      chatFocusMode: false,
+      chatShowThinking: true,
+      chatShowToolCalls: true,
+      splitRatio: 0.6,
+      navCollapsed: false,
+      navWidth: 220,
+      navGroupsCollapsed: {},
+    });
+
+    localStorage.setItem(
+      "openclaw.control.settings.v1",
+      JSON.stringify({
+        ...JSON.parse(localStorage.getItem("openclaw.control.settings.v1") ?? "{}"),
+        gatewayUrl: "wss://gateway-a.example:8443/openclaw",
+      }),
+    );
+
+    expect(loadSettings()).toMatchObject({
+      gatewayUrl: "wss://gateway-a.example:8443/openclaw",
+      sessionKey: "agent:test_old:main",
+      lastActiveSessionKey: "agent:test_old:main",
+    });
+
+    localStorage.setItem(
+      "openclaw.control.settings.v1",
+      JSON.stringify({
+        ...JSON.parse(localStorage.getItem("openclaw.control.settings.v1") ?? "{}"),
+        gatewayUrl: "wss://gateway-b.example:8443/openclaw",
+      }),
+    );
+
+    expect(loadSettings()).toMatchObject({
+      gatewayUrl: "wss://gateway-b.example:8443/openclaw",
+      sessionKey: "agent:test_new:main",
+      lastActiveSessionKey: "agent:test_new:main",
+    });
+  });
+
+  it("caps persisted session scopes to the most recent gateways", async () => {
+    setTestLocation({
+      protocol: "https:",
+      host: "gateway.example:8443",
+      pathname: "/",
+    });
+
+    const { saveSettings } = await import("./storage.ts");
+
+    for (let i = 0; i < 12; i += 1) {
+      saveSettings({
+        gatewayUrl: `wss://gateway-${i}.example:8443/openclaw`,
+        token: "",
+        sessionKey: `agent:test_${i}:main`,
+        lastActiveSessionKey: `agent:test_${i}:main`,
+        theme: "claw",
+        themeMode: "system",
+        chatFocusMode: false,
+        chatShowThinking: true,
+        chatShowToolCalls: true,
+        splitRatio: 0.6,
+        navCollapsed: false,
+        navWidth: 220,
+        navGroupsCollapsed: {},
+      });
+    }
+
+    const persisted = JSON.parse(localStorage.getItem("openclaw.control.settings.v1") ?? "{}");
+    const scopes = Object.keys(persisted.sessionsByGateway ?? {});
+
+    expect(scopes).toHaveLength(10);
+    expect(scopes).not.toContain("wss://gateway-0.example:8443/openclaw");
+    expect(scopes).not.toContain("wss://gateway-1.example:8443/openclaw");
+    expect(scopes).toContain("wss://gateway-11.example:8443/openclaw");
   });
 });

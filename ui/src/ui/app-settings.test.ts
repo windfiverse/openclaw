@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   applyResolvedTheme,
   applySettings,
+  applySettingsFromUrl,
   attachThemeListener,
   setTabFromRoute,
   syncThemeWithSettings,
@@ -38,6 +39,7 @@ type SettingsHost = {
     themeMode: ThemeMode;
     chatFocusMode: boolean;
     chatShowThinking: boolean;
+    chatShowToolCalls: boolean;
     splitRatio: number;
     navCollapsed: boolean;
     navWidth: number;
@@ -93,6 +95,8 @@ type SettingsHost = {
       detail: string;
     }
   >;
+  pendingGatewayUrl?: string | null;
+  pendingGatewayToken?: string | null;
 };
 
 const createdHosts: SettingsHost[] = [];
@@ -132,6 +136,7 @@ const createHost = (tab: Tab): SettingsHost => {
       themeMode: "system",
       chatFocusMode: false,
       chatShowThinking: true,
+      chatShowToolCalls: true,
       splitRatio: 0.6,
       navCollapsed: false,
       navWidth: 220,
@@ -173,10 +178,29 @@ const createHost = (tab: Tab): SettingsHost => {
     thirdPartyNodesAuthAdapterStatuses: {},
     thirdPartyNodesHandledCallbacks: {},
     thirdPartyNodesAuthAdapterProgress: {},
+    pendingGatewayUrl: null,
+    pendingGatewayToken: null,
   };
   createdHosts.push(host);
   return host;
 };
+
+function stubWindowAt(path: string) {
+  const location = new URL(`http://localhost${path}`);
+  const history = {
+    replaceState: (_state: unknown, _title: string, nextUrl: string) => {
+      const next = new URL(nextUrl, location.href);
+      Object.assign(location, {
+        href: next.href,
+        pathname: next.pathname,
+        search: next.search,
+        hash: next.hash,
+      });
+    },
+  };
+  vi.stubGlobal("window", { location, history } as unknown as Window & typeof globalThis);
+  return { location, history };
+}
 
 describe("setTabFromRoute", () => {
   beforeEach(() => {
@@ -338,5 +362,86 @@ describe("setTabFromRoute", () => {
         detail: "Command execution confirmed by the operator.",
       },
     });
+  });
+});
+
+describe("applySettingsFromUrl", () => {
+  beforeEach(() => {
+    stubWindowAt("/chat");
+    vi.stubGlobal("localStorage", createStorageMock());
+    vi.stubGlobal("navigator", { language: "en-US" } as Navigator);
+  });
+
+  afterEach(() => {
+    if (typeof window !== "undefined" && window.history?.replaceState) {
+      window.history.replaceState({}, "", "/chat");
+    }
+    vi.unstubAllGlobals();
+  });
+
+  it("resets stale persisted session selection to main when a token is supplied without a session", () => {
+    const host = createHost("chat");
+    host.settings = {
+      ...host.settings,
+      gatewayUrl: "ws://localhost:18789",
+      token: "",
+      sessionKey: "agent:test_old:main",
+      lastActiveSessionKey: "agent:test_old:main",
+    };
+    host.sessionKey = "agent:test_old:main";
+
+    window.history.replaceState({}, "", "/chat#token=test-token");
+
+    applySettingsFromUrl(host);
+
+    expect(host.sessionKey).toBe("main");
+    expect(host.settings.sessionKey).toBe("main");
+    expect(host.settings.lastActiveSessionKey).toBe("main");
+  });
+
+  it("preserves an explicit session from the URL when token and session are both supplied", () => {
+    const host = createHost("chat");
+    host.settings = {
+      ...host.settings,
+      gatewayUrl: "ws://localhost:18789",
+      token: "",
+      sessionKey: "agent:test_old:main",
+      lastActiveSessionKey: "agent:test_old:main",
+    };
+    host.sessionKey = "agent:test_old:main";
+
+    window.history.replaceState({}, "", "/chat?session=agent%3Atest_new%3Amain#token=test-token");
+
+    applySettingsFromUrl(host);
+
+    expect(host.sessionKey).toBe("agent:test_new:main");
+    expect(host.settings.sessionKey).toBe("agent:test_new:main");
+    expect(host.settings.lastActiveSessionKey).toBe("agent:test_new:main");
+  });
+
+  it("does not reset the current gateway session when a different gateway is pending confirmation", () => {
+    const host = createHost("chat");
+    host.settings = {
+      ...host.settings,
+      gatewayUrl: "ws://gateway-a.example:18789",
+      token: "",
+      sessionKey: "agent:test_old:main",
+      lastActiveSessionKey: "agent:test_old:main",
+    };
+    host.sessionKey = "agent:test_old:main";
+
+    window.history.replaceState(
+      {},
+      "",
+      "/chat?gatewayUrl=ws%3A%2F%2Fgateway-b.example%3A18789#token=test-token",
+    );
+
+    applySettingsFromUrl(host);
+
+    expect(host.sessionKey).toBe("agent:test_old:main");
+    expect(host.settings.sessionKey).toBe("agent:test_old:main");
+    expect(host.settings.lastActiveSessionKey).toBe("agent:test_old:main");
+    expect(host.pendingGatewayUrl).toBe("ws://gateway-b.example:18789");
+    expect(host.pendingGatewayToken).toBe("test-token");
   });
 });
