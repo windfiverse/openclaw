@@ -62,6 +62,16 @@ import {
   UpdateRunParamsSchema,
 } from "./config.js";
 import {
+  ThirdPartyNodesApplyParamsSchema,
+  ThirdPartyNodesApplyResultSchema,
+  ThirdPartyNodesCatalogParamsSchema,
+  ThirdPartyNodesCatalogResultSchema,
+  ThirdPartyNodesStatusParamsSchema,
+  ThirdPartyNodesStatusResultSchema,
+  ThirdPartyNodesVerifyParamsSchema,
+  ThirdPartyNodesVerifyResultSchema,
+} from "./third-party-nodes.js";
+import {
   CronAddParamsSchema,
   CronJobSchema,
   CronListParamsSchema,
@@ -294,6 +304,14 @@ export const ProtocolSchemas = {
   ChatInjectParams: ChatInjectParamsSchema,
   ChatEvent: ChatEventSchema,
   UpdateRunParams: UpdateRunParamsSchema,
+  ThirdPartyNodesCatalogParams: ThirdPartyNodesCatalogParamsSchema,
+  ThirdPartyNodesCatalogResult: ThirdPartyNodesCatalogResultSchema,
+  ThirdPartyNodesStatusParams: ThirdPartyNodesStatusParamsSchema,
+  ThirdPartyNodesStatusResult: ThirdPartyNodesStatusResultSchema,
+  ThirdPartyNodesApplyParams: ThirdPartyNodesApplyParamsSchema,
+  ThirdPartyNodesApplyResult: ThirdPartyNodesApplyResultSchema,
+  ThirdPartyNodesVerifyParams: ThirdPartyNodesVerifyParamsSchema,
+  ThirdPartyNodesVerifyResult: ThirdPartyNodesVerifyResultSchema,
   TickEvent: TickEventSchema,
   ShutdownEvent: ShutdownEventSchema,
 } satisfies Record<string, TSchema>;

@@ -224,6 +224,22 @@ import {
   TalkModeParamsSchema,
   type TickEvent,
   TickEventSchema,
+  type ThirdPartyNodesApplyParams,
+  ThirdPartyNodesApplyParamsSchema,
+  type ThirdPartyNodesApplyResult,
+  ThirdPartyNodesApplyResultSchema,
+  type ThirdPartyNodesCatalogParams,
+  ThirdPartyNodesCatalogParamsSchema,
+  type ThirdPartyNodesCatalogResult,
+  ThirdPartyNodesCatalogResultSchema,
+  type ThirdPartyNodesStatusParams,
+  ThirdPartyNodesStatusParamsSchema,
+  type ThirdPartyNodesStatusResult,
+  ThirdPartyNodesStatusResultSchema,
+  type ThirdPartyNodesVerifyParams,
+  ThirdPartyNodesVerifyParamsSchema,
+  type ThirdPartyNodesVerifyResult,
+  ThirdPartyNodesVerifyResultSchema,
   type UpdateRunParams,
   UpdateRunParamsSchema,
   type WakeParams,
@@ -417,6 +433,26 @@ export const validateChatAbortParams = ajv.compile<ChatAbortParams>(ChatAbortPar
 export const validateChatInjectParams = ajv.compile<ChatInjectParams>(ChatInjectParamsSchema);
 export const validateChatEvent = ajv.compile(ChatEventSchema);
 export const validateUpdateRunParams = ajv.compile<UpdateRunParams>(UpdateRunParamsSchema);
+export const validateThirdPartyNodesCatalogParams = ajv.compile<ThirdPartyNodesCatalogParams>(
+  ThirdPartyNodesCatalogParamsSchema,
+);
+export const validateThirdPartyNodesStatusParams = ajv.compile<ThirdPartyNodesStatusParams>(
+  ThirdPartyNodesStatusParamsSchema,
+);
+export const validateThirdPartyNodesApplyParams = ajv.compile<ThirdPartyNodesApplyParams>(
+  ThirdPartyNodesApplyParamsSchema,
+);
+export const validateThirdPartyNodesVerifyParams = ajv.compile<ThirdPartyNodesVerifyParams>(
+  ThirdPartyNodesVerifyParamsSchema,
+);
+export const validateThirdPartyNodesCatalogResult =
+  ajv.compile<ThirdPartyNodesCatalogResult>(ThirdPartyNodesCatalogResultSchema);
+export const validateThirdPartyNodesStatusResult =
+  ajv.compile<ThirdPartyNodesStatusResult>(ThirdPartyNodesStatusResultSchema);
+export const validateThirdPartyNodesApplyResult =
+  ajv.compile<ThirdPartyNodesApplyResult>(ThirdPartyNodesApplyResultSchema);
+export const validateThirdPartyNodesVerifyResult =
+  ajv.compile<ThirdPartyNodesVerifyResult>(ThirdPartyNodesVerifyResultSchema);
 export const validateWebLoginStartParams =
   ajv.compile<WebLoginStartParams>(WebLoginStartParamsSchema);
 export const validateWebLoginWaitParams = ajv.compile<WebLoginWaitParams>(WebLoginWaitParamsSchema);
@@ -555,6 +591,14 @@ export {
   ChatSendParamsSchema,
   ChatInjectParamsSchema,
   UpdateRunParamsSchema,
+  ThirdPartyNodesCatalogParamsSchema,
+  ThirdPartyNodesCatalogResultSchema,
+  ThirdPartyNodesStatusParamsSchema,
+  ThirdPartyNodesStatusResultSchema,
+  ThirdPartyNodesApplyParamsSchema,
+  ThirdPartyNodesApplyResultSchema,
+  ThirdPartyNodesVerifyParamsSchema,
+  ThirdPartyNodesVerifyResultSchema,
   TickEventSchema,
   ShutdownEventSchema,
   ProtocolSchemas,
@@ -668,5 +712,13 @@ export type {
   LogsTailResult,
   PollParams,
   UpdateRunParams,
+  ThirdPartyNodesCatalogParams,
+  ThirdPartyNodesCatalogResult,
+  ThirdPartyNodesStatusParams,
+  ThirdPartyNodesStatusResult,
+  ThirdPartyNodesApplyParams,
+  ThirdPartyNodesApplyResult,
+  ThirdPartyNodesVerifyParams,
+  ThirdPartyNodesVerifyResult,
   ChatInjectParams,
 };
