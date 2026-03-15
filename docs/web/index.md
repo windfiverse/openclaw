@@ -14,6 +14,7 @@ The Gateway serves a small **browser Control UI** (Vite + Lit) from the same por
 - optional prefix: set `gateway.controlUi.basePath` (e.g. `/openclaw`)
 
 Capabilities live in [Control UI](/web/control-ui).
+Third-party node auth orchestration is documented in [Third-Party Nodes](/web/third-party-nodes).
 This page focuses on bind modes, security, and web-facing surfaces.
 
 ## Webhooks

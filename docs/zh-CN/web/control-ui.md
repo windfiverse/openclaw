@@ -79,6 +79,9 @@ openclaw devices approve <requestId>
 - 调试：状态/健康/模型快照 + 事件日志 + 手动 RPC 调用（`status`、`health`、`models.list`）
 - 日志：Gateway 网关文件日志的实时尾部跟踪，带过滤/导出（`logs.tail`）
 - 更新：运行包/git 更新 + 重启（`update.run`）并显示重启报告
+- AI Agents：基于模板的第三方节点接入、外部认证引导、回调 code 草拟、验证/应用流程
+
+另见：[第三方节点](/zh-CN/web/third-party-nodes)。
 
 ## 聊天行为
 

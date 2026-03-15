@@ -1248,7 +1248,7 @@
               },
               {
                 "group": "Web interfaces",
-                "pages": ["web/index", "web/control-ui", "web/dashboard", "web/webchat", "web/tui"]
+                "pages": ["web/index", "web/control-ui", "web/third-party-nodes", "web/dashboard", "web/webchat", "web/tui"]
               }
             ]
           },
@@ -1329,6 +1329,7 @@
                 "pages": [
                   "reference/wizard",
                   "reference/token-use",
+                  "reference/third-party-node-templates",
                   "reference/secretref-credential-surface",
                   "reference/prompt-caching",
                   "reference/api-usage-costs",
@@ -1835,6 +1836,7 @@
                 "pages": [
                   "zh-CN/web/index",
                   "zh-CN/web/control-ui",
+                  "zh-CN/web/third-party-nodes",
                   "zh-CN/web/dashboard",
                   "zh-CN/web/webchat",
                   "zh-CN/web/tui"
@@ -1914,6 +1916,7 @@
                 "pages": [
                   "zh-CN/reference/wizard",
                   "zh-CN/reference/token-use",
+                  "zh-CN/reference/third-party-node-templates",
                   "zh-CN/reference/api-usage-costs",
                   "zh-CN/reference/transcript-hygiene",
                   "zh-CN/date-time"

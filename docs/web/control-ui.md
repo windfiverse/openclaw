@@ -87,6 +87,9 @@ The Control UI can localize itself on first load based on your browser locale, a
 - Debug: status/health/models snapshots + event log + manual RPC calls (`status`, `health`, `models.list`)
 - Logs: live tail of gateway file logs with filter/export (`logs.tail`)
 - Update: run a package/git update + restart (`update.run`) with a restart report
+- AI Agents: template-driven third-party node setup, external auth guidance, callback-code drafting, verify/apply flow
+
+See also: [Third-Party Nodes](/web/third-party-nodes).
 
 Cron jobs panel notes:
 
